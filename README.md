@@ -1,11 +1,10 @@
-## My Project
+## Accessing Hive Metastore Securely With AWS Glue Over Private Connections
 
-TODO: Fill this README out!
 
-Be sure to:
 
-* Change the title in this README
-* Edit your repository description on GitHub
+This github hosts the python script for connecting to the HiveMetastore securely using AWS Glue. The script is used to launch the Glue job which will download the Covid datasets from JohnHopkins and cleanse the data and run query to generate the output. 
+
+
 
 ## License
 
