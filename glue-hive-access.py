@@ -97,7 +97,7 @@ datasink1 = glueContext.write_dynamic_frame.from_options(frame = dropnullfields1
 
 df2 = glueContext.create_dynamic_frame.from_options("s3", {'paths': ["s3://"+s3_bucket_name+"/covid_data/csv/recovered_cases/" ]}, format="csv", format_options={'withHeader':True}).toDF()
 #Since the data has date as the columns, transpose that to rows so the data is represented
-newDF2 = spark.createDataFrame(df1.rdd.flatMap(rowExpander))
+newDF2 = spark.createDataFrame(df2.rdd.flatMap(rowExpander))
 newDF2.show(10)
 datasource2 = DynamicFrame.fromDF(newDF2,glueContext,"datasource2")
 applymapping2 = ApplyMapping.apply(frame = datasource2, mappings = [("province", "string", "province", "string"),("country", "string", "country", "string"), ("latitude", "string", "latitude", "double"), ("longitude", "string", "longitude", "double"), ("date", "string", "record_date", "string"), ("value", "string", "recovered", "long")], transformation_ctx = "applymapping2")
@@ -148,15 +148,8 @@ sqlDF3 = spark.sql(createtable3)
 
 
 # # Run queries against the input data and store in the output folder in the S3 bucket
-sql1DF = spark.sql("select covid_confirmed_cases.country as country , sum(deaths) as total_deaths , sum(confirmed) as total_confirmed, sum(recovered) as total_recovered from covid_confirmed_cases join covid_death_cases on covid_confirmed_cases.country=covid_death_cases.country join covid_recovered_cases on covid_death_cases.country=covid_recovered_cases.country where covid_confirmed_cases.record_date between '5/01/20' and '5/31/20' group by covid_confirmed_cases.country").repartition(1)
-sql1DF.write.csv("s3://"+s3_bucket_name+"/output/query1")
 
-sql2DF = spark.sql("select country, sum(deaths) as total_deaths, month(from_unixtime(unix_timestamp(record_date ,'M/dd/yy'), 'yyyy-MM-dd')) as month from covid_death_cases  group by country, month(from_unixtime(unix_timestamp(record_date ,'M/dd/yy'), 'yyyy-MM-dd'))").repartition(1)
-sql2DF.write.csv("s3://"+s3_bucket_name+"/output/query2")
+sql1DF = spark.sql("select covid_confirmed_cases.country as country ,covid_confirmed_cases.record_date as record_date, sum(deaths) as total_deaths , sum(confirmed) as total_confirmed, sum(recovered) as total_recovered, CAST(sum(deaths) as double) /CAST(sum(confirmed) as double) as mortality_rate from covid_confirmed_cases,covid_death_cases, covid_recovered_cases where covid_confirmed_cases.record_date=covid_death_cases.record_date and covid_confirmed_cases.country=covid_death_cases.country and covid_confirmed_cases.record_date=covid_recovered_cases.record_date and covid_confirmed_cases.country=covid_recovered_cases.country and covid_confirmed_cases.province=covid_recovered_cases.province and covid_confirmed_cases.province = covid_death_cases.province group by covid_confirmed_cases.country,covid_confirmed_cases.record_date order by country,record_date").repartition(1)
 
+sql1DF.write.csv("s3://"+s3_bucket_name+"/output")
 
-sql3DF = spark.sql("select country, sum(recovered) as total_recovered, month(from_unixtime(unix_timestamp(record_date ,'M/dd/yy'), 'yyyy-MM-dd')) as month from covid_recovered_cases  group by country, month(from_unixtime(unix_timestamp(record_date ,'M/dd/yy'), 'yyyy-MM-dd'))").repartition(1)
-sql3DF.write.csv("s3://"+s3_bucket_name+"/output/query3")
-
-sql4DF = spark.sql("select country, sum(confirmed) as total_confirmed , month(from_unixtime(unix_timestamp(record_date ,'M/dd/yy'), 'yyyy-MM-dd')) as month from covid_confirmed_cases  group by country, month(from_unixtime(unix_timestamp(record_date ,'M/dd/yy'), 'yyyy-MM-dd'))").repartition(1)
-sql4DF.write.csv("s3://"+s3_bucket_name+"/output/query4")
